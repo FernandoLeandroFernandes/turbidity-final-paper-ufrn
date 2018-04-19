@@ -27,15 +27,14 @@ int S2      = A1;
 int S1_level  = 0;
 int S2_level  = 0;
 
-bool verbose = 2;
+bool verbose = 1;
 
 int levels[]  = {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 210, 215, 220, 225, 230, 235, 240, 245, 250, 255};
-int mapping[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+int mapping[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 int S1_direct_mapping[] = { 13, 324, 600, 740, 823, 875, 910, 941, 958, 971, 977, 980, 982, 984, 986, 987, 989, 989, 990, 991, 991, 993, 993, 993, 994, 994, 995, 995, 996, 996, 997, 997, 998, 998, 998, 998, 998, 999, 999, 999, 1000, 1000, 1000, 1000, 1000, 1001, 1001, 1001, 1001, 1001, 1002, 1002 };
 int S2_direct_mapping[] = { 285, 545, 693, 781, 839, 881, 913, 937, 954, 963, 968, 972, 975, 977, 979, 981, 982, 983, 984, 989, 990, 987, 991, 992, 990, 993, 991, 994, 994, 995, 995, 996, 996, 996, 997, 997, 997, 998, 998, 998, 998, 998, 999, 999, 999, 999, 1000, 1000, 1000, 1000, 1000 };
 int S1_indirect_mapping[] = { 1007, 1010, 1021, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1021, 1021, 1021, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1021, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1021, 1021, 1022, 1022, 1021, 1021, 1021, 1021, 1021, 1021 };
 int S2_indirect_mapping[] = { 1023, 1023, 1023, 1023, 1023, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1021, 1022, 1022, 1021, 1022, 1021, 1022, 1021, 1022, 1021, 1022, 1022, 1023, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1022, 1021, 1021, 1021, 1021, 1021, 1021, 1021, 1021, 1021, 1021 };
-
 
 // Brilho dos LEDs para leitura
 int const BRIGHTEN_AMOUNT   = 5;
@@ -45,14 +44,21 @@ int const BRIGHTNESS_OFF    = 0;
 int const BRIGHT_OPERATION  = 255;
 
 // Quantidade de aferições em cada leitura
-int const SENSOR_READINGS   = 256;
-int const READING_DELAY     = 20;
-int const READING_STEADINESS= 5;
+int const SENSOR_READINGS   = 32;
+int const READING_DELAY     = 10;
+int const READING_STEADINESS= 3;
 int const SETTLING_DELAY    = 10;
 
 int const READING_MAX       = 1024;
-int const TURBIDITY_INDEX   = 20;
-int const TURBIDITY_READINGS= 5;
+int const TURBIDITY_READINGS= 1;
+float const TURBIDITY_INDEX_REUSE   = 0.4;
+
+int const MODE_OPERATION    = 1;
+int const MODE_CALIBRATION  = 2;
+int const MODE_TEST_FREEZE1 = 4;
+int const MODE_TEST_FREEZE2 = 8;
+
+int const MODE = MODE_OPERATION;
 
 int analog_ports[] = { A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15 };
 
@@ -134,8 +140,6 @@ void calibrate() {
     reading_index++;
 
     if (verbose) {
-        // Serial.print("L1 CALIBRATION END /// BRIGHTNESS: ");
-        // Serial.print(brightness, DEC);
         Serial.print("\tS1: ");
         Serial.print(S1_level, DEC);
         Serial.print("\tS2: ");
@@ -176,8 +180,6 @@ void calibrate() {
     reading_index++;
 
     if (verbose) {
-        // Serial.print("L2 CALIBRATION END /// BRIGHTNESS: ");
-        // Serial.print(brightness, DEC);
         Serial.print("\tS1: ");
         Serial.print(S1_level, DEC);
         Serial.print("\tS2: ");
@@ -241,12 +243,12 @@ double total_sensor_reading = 0;
 float readingToLuminosityLevel_S1(float input) {
 
   int idx = 0, start = 0, end = 0;
-  int length = (sizeof(mapping)/sizeof(int));
-  while (idx < length && mapping[idx] < input) idx++;
+  int length = (sizeof(S1_direct_mapping)/sizeof(int));
+  while (idx < length && S1_direct_mapping[idx] < input) idx++;
   
-  if (idx == 0) return mapping[0];
-  else if (idx > 255) return mapping[255];
-  else if (input == mapping[idx]) return mapping[idx];
+  if (idx == 0) return levels[0];
+  else if (idx > 255) return levels[length-1];
+  else if (input == S1_direct_mapping[idx]) return levels[idx];
 
   end = idx;
   start = idx - 1;
@@ -258,11 +260,12 @@ float readingToLuminosityLevel_S1(float input) {
 float readingToLuminosityLevel_S2(float input) {
 
   int idx = 0, start = 0, end = 0;
-  int length = (sizeof(mapping)/sizeof(int));
-  while (idx < length && mapping[idx] < input) idx++;
+  int length = (sizeof(S2_direct_mapping)/sizeof(int));
+  while (idx < length && S2_direct_mapping[idx] < input) idx++;
   
-  if (idx == 0) return mapping[0];
-  else if (idx > 255) return mapping[255];
+  if (idx == 0) return levels[0];
+  else if (idx > 255) return levels[length-1];
+  else if (input == S2_direct_mapping[idx]) return levels[idx];
 
   end = idx;
   start = idx - 1;
@@ -273,8 +276,8 @@ float readingToLuminosityLevel_S2(float input) {
 
 float turbidityInputRatio;
 float turbidityAdjustedRatio;
-float S1_adjusted;
-float S2_adjusted;
+float S1_luminosity;
+float S2_luminosity;
 
 float readTurbidity_S1(int brightness) {
 
@@ -291,31 +294,20 @@ float readTurbidity_S1(int brightness) {
 
   analogWrite(L1, BRIGHTNESS_OFF);
 
-  S1_adjusted = (readingToLuminosityLevel_S1(S1_level));
-  S2_adjusted = (readingToLuminosityLevel_S2(S2_level)); //*(1+(absortion(S1_level, brightness)/2));
+  S1_luminosity = (readingToLuminosityLevel_S1(S1_level));
   
-  turbidityInputRatio = (S2_level < S1_level ? S2_level/S1_level : 1);
-  turbidityAdjustedRatio = (S2_adjusted < S1_adjusted ? S2_adjusted/S1_adjusted : 1);
+  turbidityAdjustedRatio = 1 - ((float)(S1_luminosity / 256));
+  turbidityAdjustedRatio = (turbidityAdjustedRatio <= 1 ? turbidityAdjustedRatio : 1);
 
   if (verbose) {
-    Serial.print("\tS1(input/adjusted): ");
-    Serial.print(S1_level);
-    Serial.print("/");
-    Serial.print(S1_adjusted);
+
+    Serial.print("\tS1(luminosity): ");
+    Serial.print(S1_luminosity);
     Serial.print("\t");
 
-    Serial.print("\tS2(input/adjusted): ");
-    Serial.print(S2_level);
-    Serial.print("/");
-    Serial.print(S2_adjusted);
-    Serial.print("\t");
-
-    Serial.print("\tTURBIDITY(input/adjusted) : ");
-    Serial.print(turbidityInputRatio, DEC);
-    Serial.print("/");
+    Serial.print("\tTURBIDITY(ratio) : ");
     Serial.println(turbidityAdjustedRatio, DEC);
 
-    // Serial.println("TURBIDITY S1 ///// END");
   }
 
   return turbidityAdjustedRatio;
@@ -335,31 +327,19 @@ float readTurbidity_S2(int brightness) {
 
   analogWrite(L2, BRIGHTNESS_OFF);
 
-  S2_adjusted = (readingToLuminosityLevel_S1(S2_level));
-  S1_adjusted = (readingToLuminosityLevel_S2(S1_level));
+  S2_luminosity = (readingToLuminosityLevel_S1(S2_level));
   
-  turbidityInputRatio = (S2_level < S1_level ? S2_level/S1_level : 1);
-  turbidityAdjustedRatio = (S2_adjusted < S1_adjusted ? S2_adjusted/S1_adjusted : 1);
+  turbidityAdjustedRatio = 1 - ((float)(S2_luminosity / 256));
+  turbidityAdjustedRatio = (turbidityAdjustedRatio <= 1 ? turbidityAdjustedRatio : 1);
 
   if (verbose) {
-    Serial.print("\tS1(input/adjusted): ");
-    Serial.print(S1_level);
-    Serial.print("/");
-    Serial.print(S1_adjusted);
+
+    Serial.print("\tS2(luminosity): ");
+    Serial.print(S2_luminosity);
     Serial.print("\t");
 
-    Serial.print("\tS2(input/adjusted): ");
-    Serial.print(S2_level);
-    Serial.print("/");
-    Serial.print(S2_adjusted);
-    Serial.print("\t");
-
-    Serial.print("\tTURBIDITY(input/adjusted) : ");
-    Serial.print(turbidityInputRatio, DEC);
-    Serial.print("/");
+    Serial.print("\tTURBIDITY(ratio) : ");
     Serial.println(turbidityAdjustedRatio, DEC);
-
-    // Serial.println("TURBIDITY S1 ///// END");
   }
 
   return turbidityAdjustedRatio;
@@ -515,7 +495,7 @@ void run() {
     Serial.println(turbidity, DEC);
   }
 
-  digitalWrite(RELAY, (turbidity < TURBIDITY_INDEX ? HIGH : LOW));
+  digitalWrite(RELAY, (turbidity < TURBIDITY_INDEX_REUSE ? HIGH : LOW));
 }
 
 // Rotina de configuração executada uma vez na inicialização do microcontrolador
@@ -525,16 +505,22 @@ void setup() {
   setupPorts();
 
   // Calibra os sendores, mapeando a curva de reacao a luminosidade
-  calibrate();
+  if (MODE == MODE_CALIBRATION) {
+    calibrate();
+  }
 }
 
 void loop() {
 
-  // Rotina de monitoramento
-  // run();
+  if (MODE == MODE_OPERATION) {
+    run();
 
-  freezeSensor1();
-  freezeSensor2();
+  } else if (MODE == MODE_TEST_FREEZE1) {
+    freezeSensor1();
 
-  delay(200);
+  } else if (MODE == MODE_TEST_FREEZE2) {
+    freezeSensor2();
+  }
+
+  delay(100);
 }
